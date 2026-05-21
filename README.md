@@ -2,6 +2,10 @@
 
 MVP платформа для автоматичної обробки, класифікації та маршрутизації лідів з AI-powered аналітикою.
 
+## 💡 Концепція
+
+Вся бізнес-логіка (нормалізація, скоринг, AI summary) живе в API — незалежно від зовнішніх сервісів. n8n використаний виключно як шар інтеграцій: якщо Google Sheets або Telegram змінять API, достатньо оновити ноду в n8n без торкання основного коду. Скоринг винесений в конфіг — легко адаптується під будь-яку логіку пріоритизації лідів.
+
 ## ⚡ Архітектура
 
 ```
@@ -16,7 +20,7 @@ Landing Page (Next.js) → API Route (Vercel Serverless)
 |-----------|-----------|--------|
 | Landing Page | Next.js 16 (App Router) | Vercel |
 | API | Serverless API Routes | Vercel |
-| AI Summary | Gemini 1.5 Flash | Cloud API |
+| AI Summary | Llama 3.1 8B (Groq) | Cloud API |
 | Інтеграції | n8n | n8n Cloud |
 | Зберігання | Google Sheets (через n8n) | Google |
 | Нотифікації | Telegram Bot (через n8n) | Telegram |
@@ -33,7 +37,7 @@ Landing Page (Next.js) → API Route (Vercel Serverless)
 ├── lib/
 │   ├── normalize.js           # Нормалізація даних (телефон, бюджет)
 │   ├── classify.js            # Scoring та класифікація (Hot/Warm/Cold)
-│   └── ai-summary.js          # Gemini 1.5 Flash summary
+│   └── ai-summary.js          # Llama 3.1 8B (Groq) summary
 ├── n8n/
 │   └── workflow.json          # Готовий n8n workflow для імпорту
 ├── test-payload.json          # Тестовий payload для API
@@ -49,7 +53,7 @@ npm install
 
 # 2. Створити .env.local
 cp .env.example .env.local
-# Додати свій GEMINI_API_KEY та N8N_WEBHOOK_URL
+# Додати свій GROQ_API_KEY та N8N_WEBHOOK_URL
 
 # 3. Запустити dev server
 npm run dev
@@ -61,10 +65,10 @@ npm run dev
 
 | Змінна | Опис | Обов'язкова |
 |--------|------|-------------|
-| `GEMINI_API_KEY` | API ключ Gemini для AI summary | Ні (є fallback) |
+| `GROQ_API_KEY` | API ключ Groq для AI summary (llama-3.1-8b-instant) | Ні (є fallback) |
 | `N8N_WEBHOOK_URL` | URL вебхука n8n Cloud | Ні (логується warning) |
 
-> **Примітка:** Без `GEMINI_API_KEY` використовується шаблонний summary. Без `N8N_WEBHOOK_URL` вебхук не відправляється, але API працює повністю.
+> **Примітка:** Без `GROQ_API_KEY` використовується шаблонний summary. Без `N8N_WEBHOOK_URL` вебхук не відправляється, але API працює повністю.
 
 ## 📡 API Reference
 
@@ -103,7 +107,7 @@ npm run dev
     "id": "lead_mpe1y3ou_i5ao",
     "summary": "Олександр Петренко з компанії \"ТОВ Діджитал Солюшнс\" ...",
     "classification": {
-      "score": 95,
+      "score": 85,
       "category": "hot",
       "label": "🔥 Hot Lead"
     },
@@ -118,10 +122,10 @@ npm run dev
 
 | Фактор | Макс. балів | Логіка |
 |--------|------------|--------|
-| Budget | 30 | ≥50k=30, ≥20k=20, ≥10k=10, інше=5 |
-| Urgency | 25 | asap/this_week=25, this_month=20, no_rush=5 |
-| Completeness | 25 | 5 балів за кожне заповнене поле |
-| Message | 20 | >200 символів=20, >100=15, >50=10 |
+| Бюджет | 50 | Пропорційно до 100 000 грн (налаштовується в `classify.js`) |
+| Терміновість | 30 | asap/this_week=30, this_month=22, this_quarter=15, next_quarter=8, no_rush=3 |
+| Повнота даних | 12 | 2.4 бали за кожне заповнене поле з 5 |
+| Якість повідомлення | 8 | >200 символів=8, >100=6, >50=4, >20=2 |
 
 | Score | Категорія | Emoji |
 |-------|----------|-------|
@@ -134,8 +138,8 @@ npm run dev
 1. Зареєструватися на [n8n.io](https://app.n8n.cloud/register)
 2. Імпортувати `n8n/workflow.json`
 3. Налаштувати credentials:
-   - **Google Sheets OAuth2** → замінити `YOUR_GOOGLE_SHEET_ID` та `YOUR_CREDENTIAL_ID`
-   - **Telegram Bot** → замінити `YOUR_TELEGRAM_CHAT_ID` та `YOUR_CREDENTIAL_ID`
+   - **Google Sheets OAuth2** — підключити свій Google акаунт
+   - **Telegram Bot** — вставити токен бота та chat ID
 4. Активувати workflow → скопіювати webhook URL
 5. Додати URL до `.env.local` як `N8N_WEBHOOK_URL`
 
@@ -143,20 +147,22 @@ npm run dev
 
 ```bash
 npm i -g vercel
-vercel
+vercel --prod
 ```
 
 Додати env vars в Vercel Dashboard:
-- `GEMINI_API_KEY`
+- `GROQ_API_KEY`
 - `N8N_WEBHOOK_URL`
 
 ## 🧪 Тестування API
 
-```bash
+```powershell
 # PowerShell
 $body = Get-Content -Path "test-payload.json" -Raw
-Invoke-WebRequest -Uri "http://localhost:3000/api/lead" -Method POST -Body $body -ContentType "application/json"
+Invoke-RestMethod -Uri "http://localhost:3000/api/lead" -Method POST -Body $body -ContentType "application/json" | ConvertTo-Json -Depth 5
+```
 
+```bash
 # curl
 curl -X POST http://localhost:3000/api/lead \
   -H "Content-Type: application/json" \
