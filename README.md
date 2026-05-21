@@ -1,36 +1,168 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 LeadFlow — Розумна обробка заявок
 
-## Getting Started
+MVP платформа для автоматичної обробки, класифікації та маршрутизації лідів з AI-powered аналітикою.
 
-First, run the development server:
+## ⚡ Архітектура
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+Landing Page (Next.js) → API Route (Vercel Serverless)
+                              ↓
+                    1. Validate → 2. Normalize → 3. AI Summary → 4. Classify
+                              ↓
+                    5. Webhook → n8n Cloud → Google Sheets + Telegram
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Компонент | Технологія | Деплой |
+|-----------|-----------|--------|
+| Landing Page | Next.js 16 (App Router) | Vercel |
+| API | Serverless API Routes | Vercel |
+| AI Summary | Gemini 1.5 Flash | Cloud API |
+| Інтеграції | n8n | n8n Cloud |
+| Зберігання | Google Sheets (через n8n) | Google |
+| Нотифікації | Telegram Bot (через n8n) | Telegram |
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## 📁 Структура
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+├── app/
+│   ├── layout.js              # Root layout + SEO metadata
+│   ├── page.js                # Landing page з формою
+│   ├── globals.css            # Premium dark theme
+│   └── api/lead/
+│       └── route.js           # POST /api/lead — обробка заявок
+├── lib/
+│   ├── normalize.js           # Нормалізація даних (телефон, бюджет)
+│   ├── classify.js            # Scoring та класифікація (Hot/Warm/Cold)
+│   └── ai-summary.js          # Gemini 1.5 Flash summary
+├── n8n/
+│   └── workflow.json          # Готовий n8n workflow для імпорту
+├── test-payload.json          # Тестовий payload для API
+├── .env.example               # Шаблон змінних оточення
+└── package.json
+```
 
-## Learn More
+## 🏁 Швидкий старт
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# 1. Встановити залежності
+npm install
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# 2. Створити .env.local
+cp .env.example .env.local
+# Додати свій GEMINI_API_KEY та N8N_WEBHOOK_URL
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# 3. Запустити dev server
+npm run dev
+```
 
-## Deploy on Vercel
+Відкрити [http://localhost:3000](http://localhost:3000)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🔧 Змінні оточення
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Змінна | Опис | Обов'язкова |
+|--------|------|-------------|
+| `GEMINI_API_KEY` | API ключ Gemini для AI summary | Ні (є fallback) |
+| `N8N_WEBHOOK_URL` | URL вебхука n8n Cloud | Ні (логується warning) |
+
+> **Примітка:** Без `GEMINI_API_KEY` використовується шаблонний summary. Без `N8N_WEBHOOK_URL` вебхук не відправляється, але API працює повністю.
+
+## 📡 API Reference
+
+### `GET /api/lead` — Health Check
+
+```json
+{
+  "status": "ok",
+  "service": "Lead Processing MVP",
+  "version": "1.0.0"
+}
+```
+
+### `POST /api/lead` — Submit Lead
+
+**Request:**
+```json
+{
+  "name": "Олександр Петренко",
+  "email": "alex@company.ua",
+  "phone": "+380 67 123 45 67",
+  "company": "ТОВ Діджитал Солюшнс",
+  "budget": "50000",
+  "urgency": "this_month",
+  "service": "smm",
+  "message": "Потрібна SMM-стратегія для нового продукту..."
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Заявку успішно отримано та оброблено",
+  "data": {
+    "id": "lead_mpe1y3ou_i5ao",
+    "summary": "Олександр Петренко з компанії \"ТОВ Діджитал Солюшнс\" ...",
+    "classification": {
+      "score": 95,
+      "category": "hot",
+      "label": "🔥 Hot Lead"
+    },
+    "submitted_at": "2026-05-20T12:42:45.660Z"
+  }
+}
+```
+
+**Обов'язкові поля:** `name`, `email`
+
+## 📊 Lead Scoring
+
+| Фактор | Макс. балів | Логіка |
+|--------|------------|--------|
+| Budget | 30 | ≥50k=30, ≥20k=20, ≥10k=10, інше=5 |
+| Urgency | 25 | asap/this_week=25, this_month=20, no_rush=5 |
+| Completeness | 25 | 5 балів за кожне заповнене поле |
+| Message | 20 | >200 символів=20, >100=15, >50=10 |
+
+| Score | Категорія | Emoji |
+|-------|----------|-------|
+| 70-100 | Hot | 🔥 |
+| 40-69 | Warm | 🌡️ |
+| 0-39 | Cold | ❄️ |
+
+## 🔌 n8n Cloud Setup
+
+1. Зареєструватися на [n8n.io](https://app.n8n.cloud/register)
+2. Імпортувати `n8n/workflow.json`
+3. Налаштувати credentials:
+   - **Google Sheets OAuth2** → замінити `YOUR_GOOGLE_SHEET_ID` та `YOUR_CREDENTIAL_ID`
+   - **Telegram Bot** → замінити `YOUR_TELEGRAM_CHAT_ID` та `YOUR_CREDENTIAL_ID`
+4. Активувати workflow → скопіювати webhook URL
+5. Додати URL до `.env.local` як `N8N_WEBHOOK_URL`
+
+## 🚀 Deploy на Vercel
+
+```bash
+npm i -g vercel
+vercel
+```
+
+Додати env vars в Vercel Dashboard:
+- `GEMINI_API_KEY`
+- `N8N_WEBHOOK_URL`
+
+## 🧪 Тестування API
+
+```bash
+# PowerShell
+$body = Get-Content -Path "test-payload.json" -Raw
+Invoke-WebRequest -Uri "http://localhost:3000/api/lead" -Method POST -Body $body -ContentType "application/json"
+
+# curl
+curl -X POST http://localhost:3000/api/lead \
+  -H "Content-Type: application/json" \
+  -d @test-payload.json
+```
+
+## 📝 Ліцензія
+
+MIT

@@ -1,0 +1,133 @@
+{
+  "name": "Lead Processing — Google Sheets + Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-webhook",
+        "options": {
+          "responseData": "allEntries"
+        }
+      },
+      "id": "e081c4be-f180-42ae-885a-fb10c51b0000",
+      "name": "Webhook — Receive Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        32
+      ],
+      "webhookId": "571ce8f1-bbcb-4a8c-b697-c8f144fe3f33"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Gctd263IehLl9fgbjzlo7jnpKD_jA-ocOXrj-cNWb0o",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Дата": "={{ $json.body.normalized.submitted_at }}",
+            "Ім'я": "={{ $json.body.normalized.name }}",
+            "Email": "={{ $json.body.normalized.email }}",
+            "Телефон": "={{ $json.body.normalized.phone }}",
+            "Компанія": "={{ $json.body.normalized.company }}",
+            "Послуга": "={{ $json.body.normalized.service_label }}",
+            "Бюджет": "={{ $json.body.normalized.budget_raw }}",
+            "Терміновість": "={{ $json.body.normalized.urgency_label }}",
+            "Повідомлення": "={{ $json.body.normalized.message }}",
+            "AI Summary": "={{ $json.body.ai_summary }}",
+            "Категорія": "={{ $json.body.classification.label }}",
+            "Скоринг": "={{ $json.body.classification.score }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "Дата", "displayName": "Дата", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Ім'я", "displayName": "Ім'я", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Email", "displayName": "Email", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Телефон", "displayName": "Телефон", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Компанія", "displayName": "Компанія", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Послуга", "displayName": "Послуга", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Бюджет", "displayName": "Бюджет", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Терміновість", "displayName": "Терміновість", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Повідомлення", "displayName": "Повідомлення", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "AI Summary", "displayName": "AI Summary", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Категорія", "displayName": "Категорія", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "Скоринг", "displayName": "Скоринг", "required": false, "defaultMatch": false, "display": true, "type": "number", "canBeUsedToMatch": true, "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "3485efab-fc9e-4c98-b530-c77a83d157b5",
+      "name": "Google Sheets — Save Lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        240,
+        -80
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "ymNfPT690qUnIas2",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "1286376761",
+        "text": "=📥 <b>Нова заявка!</b>\n\n👤 <b>{{ $json.body.normalized.name }}</b>\n🏢 {{ $json.body.normalized.company || \"Не вказано\" }}\n📧 {{ $json.body.normalized.email }}\n📱 {{ $json.body.normalized.phone || \"Не вказано\" }}\n\n💼 Послуга: {{ $json.body.normalized.service_label }}\n💰 Бюджет: {{ $json.body.normalized.budget_raw || \"Не вказано\" }}\n⏰ Терміновість: {{ $json.body.normalized.urgency_label }}\n\n📊 <b>{{ $json.body.classification.label }}</b> ({{ $json.body.classification.score }}/100)\n\n📝 <b>AI Summary:</b>\n{{ $json.body.ai_summary }}\n\n💬 Повідомлення:\n{{ $json.body.normalized.message || \"Не вказано\" }}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "edc94d17-f5ef-4657-8afb-3f0b23321cfa",
+      "name": "Telegram — Notify",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        128
+      ],
+      "webhookId": "39033e08-62a7-4d8d-8432-4a1916768bf5",
+      "credentials": {
+        "telegramApi": {
+          "id": "qxtyNsyvHLYnKlZh",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook — Receive Lead": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets — Save Lead",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram — Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "d5f6f39a97711f961e3d777acd02d150ac0a3a887ece350eb7b957900b7e6b6a"
+  }
+}
